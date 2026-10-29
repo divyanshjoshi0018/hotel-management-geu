@@ -1,0 +1,207 @@
+MENU_FILE = "menu.txt"
+ORDERS_FILE = "orders.txt"
+categories = {"Main Course", "Beverage", "Dessert"}
+menu = {}
+
+DEFAULT_MENU = [
+    ("Veg Burger", 120, "Main Course"),
+    ("Pizza", 250, "Main Course"),
+    ("Pasta", 180, "Main Course"),
+    ("Cold Coffee", 90, "Beverage"),
+    ("Lemonade", 50, "Beverage"),
+    ("Ice Cream", 70, "Dessert"),
+    ("Brownie", 100, "Dessert"),
+]
+
+# MODULE 1 MENU MANAGEMENT
+
+class FoodItem:
+    def __init__(self, name, price, category):
+        self.name = name
+        self.price = float(price)
+        self.category = category
+
+    def calc_price(self):
+        return self.price
+
+    def display(self):
+        print(f"{self.name:<20} {self.category:<15} Rs. {self.calc_price():.2f}")
+
+class MainCourse(FoodItem):
+    def calc_price(self):
+        return self.price
+
+class Beverage(FoodItem):
+    def calc_price(self):
+        return self.price
+
+class Dessert(FoodItem):
+    def calc_price(self):
+        return self.price
+
+def create_food_item(name, price, category):
+    if category == "Main Course":
+        return MainCourse(name, price, category)
+    elif category == "Beverage":
+        return Beverage(name, price, category)
+    elif category == "Dessert":
+        return Dessert(name, price, category)
+    else:
+        print("Unknown category.")
+
+def display_menu():
+    print("\n" + "=" * 55)
+    print("              RESTAURANT MENU")
+    print("=" * 55)
+    print(f"{'Item':<20} {'Category':<15} Price")
+    print("-" * 55)
+    for item in menu.values():
+        item.display()
+    print("=" * 55)
+
+# MODULE 3 FILE HANDLING
+
+def save_menu():
+    with open(MENU_FILE, "w") as file:
+        for item in menu.values():
+            file.write(f"{item.name}|{item.price}|{item.category}\n")
+
+def load_menu():
+    global menu
+    loaded_menu = {}
+    try:
+        with open(MENU_FILE, "r") as file:
+            for line in file:
+                fields = line.rstrip("\n").split("|")
+                if len(fields) != 3:
+                    continue
+                name, price_text, category = fields
+                try:
+                    price = float(price_text)
+                    if (not name) or (price <= 0) or (category not in categories):
+                        raise ValueError
+                    if name in loaded_menu:
+                        continue
+                    loaded_menu[name] = create_food_item(name, price, category)
+                except ValueError:
+                    continue
+        menu = loaded_menu
+    except FileNotFoundError:
+        menu = {name: create_food_item(name, price, category) for name, price, category in DEFAULT_MENU}
+        save_menu()
+
+def add_menu_item():
+    try:
+        name = input("Enter new item name: ").strip()
+        if not name:
+            print("Item name cannot be empty.")
+            return
+        if "|" in name:
+            print("Item name cannot contain '|'.")
+            return
+        if name in menu:
+            print("An item with this name already exists.")
+            return
+        print(f"Categories: {categories}")
+        category = input("Enter category: ").strip().title()
+        if category not in categories:
+            print("Invalid category.")
+            return
+        price = float(input("Enter price (Rs.): "))
+        if price <= 0:
+            print("Price must be greater than zero.")
+            return
+        menu[name] = create_food_item(name, price, category)
+        save_menu()
+        print(f"{name} added to the menu and saved.")
+    except ValueError:
+        print("Invalid price. Please enter a number.")
+
+def delete_menu_item():
+    name = input("Enter item name to delete: ").strip()
+    if not name:
+        print("Item name cannot be empty.")
+        return
+    if name in menu:
+        menu.pop(name)
+        try:
+            save_menu()
+            print(f"{name} has been successfully deleted from the menu.")
+        except:
+            print("Item could not be deleted Error Occured")
+    else:
+        print(f"{name} not found in the menu.")
+
+def change_menu():
+    confirm = input("Do you want to change the menu? (yes/no): ").strip().lower()
+    if confirm in ("yes", "y"):
+        action = input("Do you want to 'add' or 'delete' an item?: ").strip().lower()
+        match action:
+            case "add":
+                add_menu_item()
+            case "delete":
+                delete_menu_item()
+            case _:
+                print("Invalid option. Please enter 'add' or 'delete'.")
+    else:
+        print("No changes were made to the menu.")
+
+# Moulde 2  ORDERING AND BILLING
+
+def take_order():
+    order = {}
+    if not menu:
+        print("The menu is empty.")
+        return
+    while True:
+        display_menu()
+        choice = input("Enter item name to order (or 'done' to finish): ").strip()
+        if choice.lower() == "done":
+            break
+        if choice not in menu:
+            print("Item unavailable. Please choose an item shown on the menu.")
+            continue
+        try:
+            quantity = int(input("Enter quantity: "))
+            if quantity <= 0:
+                print("Quantity must be greater than zero.")
+                continue
+        except ValueError:
+            print("Invalid quantity. Enter a Natural Number.")
+            continue
+        order[choice] = order.get(choice, 0) + quantity
+        print(f"Added {quantity} x {choice} to your order.")
+    if not order:
+        print("No items were ordered.")
+        return
+    generate_bill(order)
+
+def generate_bill(order):
+    # yet to be defined
+
+def main():
+    load_menu()
+    while True:
+        print("\n===== RESTAURANT SYSTEM =====")
+        print("1. Display Menu")
+        print("2. Change Menu")
+        print("3. Place Order and Generate Bill")
+        print("4. Sales Analysis")
+        print("5. Exit")
+        choice = input("Enter your choice (1-5): ").strip()
+        match choice:
+            case "1":
+                display_menu()
+            case "2":
+                change_menu()
+            case "3":
+                take_order()
+            case "4":
+                # yet to be defined
+            case "5":
+                print("Exiting Restaurant System. Goodbye!")
+                break
+            case _:
+                print("Invalid choice. Please enter 1, 2, 3, 4 or 5.")
+
+main()
