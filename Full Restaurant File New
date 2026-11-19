@@ -1,0 +1,389 @@
+from datetime import date
+import matplotlib.pyplot as plt
+
+MENU_FILE = "menu.txt"
+ORDERS_FILE = "orders.txt"
+categories = {"Main Course", "Beverage", "Dessert"}
+menu = {}
+
+DEFAULT_MENU = [
+    ("Veg Burger", 120, "Main Course"),
+    ("Pizza", 250, "Main Course"),
+    ("Pasta", 180, "Main Course"),
+    ("Cold Coffee", 90, "Beverage"),
+    ("Lemonade", 50, "Beverage"),
+    ("Ice Cream", 70, "Dessert"),
+    ("Brownie", 100, "Dessert"),]
+
+class FoodItem:
+    def __init__(self, name, price, category):
+        self.name = name.strip().title()
+        self.price = float(price)
+        self.category = category
+
+    def calc_price(self):
+        return self.price
+
+    def display(self):
+        print(f"{self.name:<20} {self.category:<15} Rs. {self.calc_price():.2f}")
+
+class MainCourse(FoodItem):
+    def calc_price(self):
+        return self.price
+
+class Beverage(FoodItem):
+    def calc_price(self):
+        return self.price
+
+class Dessert(FoodItem):
+    def calc_price(self):
+        return self.price
+
+def create_food_item(name, price, category):
+    if category == "Main Course":
+        return MainCourse(name, price, category)
+    elif category == "Beverage":
+        return Beverage(name, price, category)
+    elif category == "Dessert":
+        return Dessert(name, price, category)
+    else:
+        print("Unknown category.")
+
+def display_menu():
+    print("\n" + "=" * 55)
+    print("              RESTAURANT MENU")
+    print("=" * 55)
+    print(f"{'Item':<20} {'Category':<15} Price")
+    print("-" * 55)
+    for item in menu.values():
+        item.display()
+    print("=" * 55)
+
+def save_menu():
+    with open(MENU_FILE, "w") as file:
+        for item in menu.values():
+            file.write(f"{item.name}|{item.price}|{item.category}\n")
+
+def load_menu():
+    global menu
+    loaded_menu = {}
+    try:
+        with open(MENU_FILE, "r") as file:
+            for line in file:
+                fields = line.rstrip("\n").split("|")
+                if len(fields) != 3:
+                    continue
+                name, price_text, category = fields
+                name_title = name.strip().title()
+                try:
+                    price = float(price_text)
+                    if (not name_title) or (price <= 0) or (category not in categories):
+                        raise ValueError
+                    if name_title in loaded_menu:
+                        continue
+                    loaded_menu[name_title] = create_food_item(name_title, price, category)
+                except ValueError:
+                    continue
+        menu = loaded_menu
+    except FileNotFoundError:
+        menu = {name.strip().title(): create_food_item(name, price, category) for name, price, category in DEFAULT_MENU}
+        save_menu()
+
+def add_menu_item():
+    try:
+        name = input("Enter new item name: ").strip().title()
+        if not name:
+            print("Item name cannot be empty.")
+            return
+        if "|" in name:
+            print("Item name cannot contain '|'.")
+            return
+        if name in menu:
+            print("An item with this name already exists.")
+            return
+        print(f"Categories: {categories}")
+        category = input("Enter category: ").strip().title()
+        if category not in categories:
+            print("Invalid category.")
+            return
+        price = float(input("Enter price (Rs.): "))
+        if price <= 0:
+            print("Price must be greater than zero.")
+            return
+        menu[name] = create_food_item(name, price, category)
+        save_menu()
+        print(f"{name} added to the menu and saved.")
+    except ValueError:
+        print("Invalid price. Please enter a number.")
+
+def delete_menu_item():
+    name = input("Enter item name to delete: ").strip().title()
+    if name not in menu:
+        print("Item not found.")
+        return
+    del menu[name]
+    try:
+        save_menu()
+        print("Item deleted successfully.")
+    except OSError:
+        print("Error saving menu file.")
+
+def change_menu():
+    confirm = input("Do you want to change the menu? (yes/no): ").strip().lower()
+    if confirm in ("yes", "y"):
+        action = input("Do you want to 'add' or 'delete' an item?: ").strip().lower()
+        match action:
+            case "add":
+                add_menu_item()
+            case "delete":
+                delete_menu_item()
+            case _:
+                print("Invalid option. Please enter 'add' or 'delete'.")
+    else:
+        print("No changes were made to the menu.")
+
+def take_order():
+    order = {}
+    if not menu:
+        print("The menu is empty.")
+        return
+    while True:
+        display_menu()
+        raw_choice = input("Enter item name to order (or 'done' to finish): ").strip()
+        if raw_choice.lower() == "done":
+            break
+        choice = raw_choice.title()
+        if choice not in menu:
+            print("Item unavailable. Please choose an item shown on the menu.")
+            continue
+        try:
+            quantity = int(input("Enter quantity: "))
+            if quantity <= 0:
+                print("Quantity must be greater than zero.")
+                continue
+        except ValueError:
+            print("Invalid quantity. Enter a Natural Number.")
+            continue
+        order[choice] = order.get(choice, 0) + quantity
+        print(f"Added {quantity} x {choice} to your order.")
+    if not order:
+        print("No items were ordered.")
+        return
+    generate_bill(order)
+
+def load_order_records():
+    records = []
+    try:
+        with open(ORDERS_FILE, "r", encoding="utf-8") as file:
+            for line in file:
+                if not line.strip():
+                    continue
+                fields = line.rstrip("\n").split("|")
+                if len(fields) != 6:
+                    continue
+                order_id_text, order_date, item_name, category, quantity_text, price_text = fields
+                try:
+                    order_id = int(order_id_text)
+                    year, month, day = map(int, order_date.split("-"))
+                    date(year, month, day)
+                    quantity = int(quantity_text)
+                    unit_price = float(price_text)
+                    if (not item_name or category not in categories or quantity <= 0 or unit_price <= 0):
+                        raise ValueError
+                    records.append({
+                        "order_id": order_id,
+                        "date": order_date,
+                        "item_name": item_name.strip().title(),
+                        "category": category,
+                        "quantity": quantity,
+                        "unit_price": unit_price,})
+                except (ValueError, TypeError):
+                    continue
+    except FileNotFoundError:
+        with open(ORDERS_FILE, "w", encoding="utf-8") as file:
+            file.write("")
+    except OSError as error:
+        print(f"Could not read order history: {error}")
+    return records
+
+def save_order(items):
+    records = load_order_records()
+    next_id = max((record["order_id"] for record in records), default=1000) + 1
+    with open(ORDERS_FILE, "a", encoding="utf-8") as file:
+        order_date = date.today().isoformat()
+        for name, category, quantity, unit_price in items:
+            if "|" in name or "|" in category:
+                raise ValueError("Item name/category cannot contain '|'.")
+            file.write(f"{next_id}|{order_date}|{name.strip().title()}|{category}|{quantity}|{unit_price:.2f}\n")
+    return next_id
+
+def generate_bill(order):
+    print("\n" + "=" * 65)
+    print("                         CUSTOMER BILL")
+    print("=" * 65)
+    print(f"{'Item':<20} {'Qty':>5} {'Price':>10} {'Total':>12}")
+    print("-" * 65)
+    grand_total = 0.0
+    order_items = []
+    for name, quantity in order.items():
+        name_title = name.strip().title()
+        if name_title not in menu:
+            print(f"Skipping unavailable item: {name_title}")
+            continue
+        item = menu[name_title]
+        unit_price = item.calc_price()
+        line_total = unit_price * quantity
+        grand_total += line_total
+        order_items.append((name_title, item.category, quantity, unit_price))
+        print(f"{name_title:<20} {quantity:>5} {unit_price:>10.2f} {line_total:>12.2f}")
+    print("-" * 65)
+    print(f"{'Grand Total (Rs.)':>47} {grand_total:>12.2f}")
+    print("=" * 65)
+    if order_items:
+        try:
+            order_id = save_order(order_items)
+            print(f"Order saved successfully. Order ID: {order_id}")
+        except OSError as error:
+            print(f"WARNING: Saving failed: {error}")
+    print("Thank you for visiting!")
+
+def search_order_id():
+    try:
+        target_id = int(input("Enter Order ID to search: ").strip())
+    except ValueError:
+        print("Invalid Order ID. Please enter a number.")
+        return
+    records = load_order_records()
+    matching = [r for r in records if r["order_id"] == target_id]
+    if not matching:
+        print(f"No order found with ID: {target_id}")
+        return
+    print("\n" + "=" * 65)
+    print(f"               ORDER DETAILS (ID: {target_id})")
+    print(f"Date: {matching[0]['date']}")
+    print("=" * 65)
+    print(f"{'Item':<20} {'Qty':>5} {'Price':>10} {'Total':>12}")
+    print("-" * 65)
+    grand_total = 0.0
+    for item in matching:
+        total = item["quantity"] * item["unit_price"]
+        grand_total += total
+        print(f"{item['item_name']:<20} {item['quantity']:>5} {item['unit_price']:>10.2f} {total:>12.2f}")
+    print("-" * 65)
+    print(f"{'Grand Total (Rs.)':>47} {grand_total:>12.2f}")
+    print("=" * 65)
+
+def analyze_sales():
+    records = load_order_records()
+    if not records:
+        print("No saved sales records yet.")
+        return None
+    item_quantities = {}
+    category_revenue = {}
+    daily_revenue = {}
+    monthly_revenue = {}
+    for record in records:
+        name = record["item_name"].strip().title()
+        category = record["category"]
+        quantity = record["quantity"]
+        unit_price = record["unit_price"]
+        order_date = record["date"]
+        line_total = quantity * unit_price
+        item_quantities[name] = item_quantities.get(name, 0) + quantity
+        category_revenue[category] = category_revenue.get(category, 0.0) + line_total
+        daily_revenue[order_date] = daily_revenue.get(order_date, 0.0) + line_total
+        month_key = order_date[:7]
+        monthly_revenue[month_key] = monthly_revenue.get(month_key, 0.0) + line_total
+    print("\n===== SALES ANALYSIS =====")
+    print("\nPopular items (quantity sold):")
+    for name, quantity in sorted(item_quantities.items(), key=lambda pair: pair[1], reverse=True):
+        print(f"  {name}: {quantity}")
+    print("\nCategory-wise revenue:")
+    for category, revenue in sorted(category_revenue.items()):
+        print(f"  {category}: Rs. {revenue:.2f}")
+    print("\nDaily revenue:")
+    for day, revenue in sorted(daily_revenue.items()):
+        print(f"  {day}: Rs. {revenue:.2f}")
+    print("\nMonthly revenue:")
+    for month, revenue in sorted(monthly_revenue.items()):
+        print(f"  {month}: Rs. {revenue:.2f}")
+    return {
+        "item_quantities": item_quantities,
+        "category_revenue": category_revenue,
+        "daily_revenue": daily_revenue,
+        "monthly_revenue": monthly_revenue,}
+
+def visualize_sales_trends():
+    sales_data = analyze_sales()
+    if sales_data is None:
+        return
+
+    items = sales_data["item_quantities"]
+    sorted_items = sorted(items.items(), key=lambda x: x[1], reverse=True)
+    item_names = [x[0] for x in sorted_items]
+    item_counts = [x[1] for x in sorted_items]
+    plt.figure(figsize=(8, 4))
+    plt.bar(item_names, item_counts, color="blue")
+    plt.title("Popular Items")
+    plt.xlabel("Food Item")
+    plt.ylabel("Qty")
+    plt.grid(True)
+    plt.show()
+    print()
+
+    categories_rev = sales_data["category_revenue"]
+    cat_names = list(categories_rev.keys())
+    cat_values = list(categories_rev.values())
+    plt.figure(figsize=(6, 4))
+    plt.bar(cat_names, cat_values, color="orange")
+    plt.title("Sales by Category")
+    plt.xlabel("Category")
+    plt.ylabel("Revenue (Rs.)")
+    plt.grid(True)
+    plt.show()
+    print()
+
+    daily_rev = sales_data["daily_revenue"]
+    sorted_days = sorted(daily_rev.keys())
+    day_revenues = [daily_rev[day] for day in sorted_days]
+    plt.figure(figsize=(8, 4))
+    plt.plot(sorted_days, day_revenues, marker="x", color="red")
+    plt.title("Revenue Over Time (Daily Trend)")
+    plt.xlabel("Date")
+    plt.ylabel("Revenue (Rs.)")
+    plt.grid(True)
+    plt.show()
+    print()
+
+def main():
+    load_menu()
+    while True:
+        print("\n===== RESTAURANT SYSTEM =====")
+        print("1. Display Menu")
+        print("2. Change Menu")
+        print("3. Place Order and Generate Bill")
+        print("4. Sales Analysis")
+        print("5. Search Order by ID")
+        print("6. Visualize Sales Trends")
+        print("7. Exit")
+        choice = input("Enter your choice (1-7): ").strip()
+        match choice:
+            case "1":
+                display_menu()
+            case "2":
+                change_menu()
+            case "3":
+                take_order()
+            case "4":
+                analyze_sales()
+            case "5":
+                search_order_id()
+            case "6":
+                visualize_sales_trends()
+            case "7":
+                print("Thanks for using. Goodbye!")
+                break
+            case _:
+                print("Invalid choice. Please enter 1, 2, 3, 4, 5, 6 or 7.")
+
+main()
